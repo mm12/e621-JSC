@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.54
+// @version      0.55
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -482,6 +482,8 @@ async function setFluffleCache(postId, data) {
     wrappedAnchor.appendChild(addSourceSign.cloneNode(true));
     div.appendChild(wrappedAnchor);
 
+    if (result.url.endsWith('/')) result.url = result.url.slice(0, -1);
+
     const a = document.createElement('a');
     a.classList.add('decorated', 'fluffle621-source');
     a.target = '_blank';
@@ -499,7 +501,8 @@ async function setFluffleCache(postId, data) {
     const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => {
       let url = new URL(a.href);
       if (url.hostname == 'twitter.com') url.hostname = 'x.com';
-      return url.toString();
+      let u = url.toString();
+      return u.endsWith('/') ? u.slice(0, -1) : u;
     });
 
     const existingList = document.querySelector('.post-sidebar-info');
@@ -522,9 +525,11 @@ async function setFluffleCache(postId, data) {
       for (const result of results) {
         let url = new URL(result.url);
         if (url.hostname == 'twitter.com') url.hostname = 'x.com';
-        if (!realSourceLinks.includes(url.toString())) {
+        let u = url.toString();
+        u = u.endsWith('/') ? u.slice(0, -1) : u;
+        if (!realSourceLinks.includes(u)) {
           listItem.append(createSource(result, results.length == 1));
-          urls.push(result.url);
+          urls.push(u);
         }
       }
     }
