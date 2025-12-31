@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.55
+// @version      0.56
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -92,7 +92,7 @@ function getImageBlob(fileUrl) {
         const ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(image, 0, 0, calculatedWidth, calculatedHeight);
-        canvas.toBlob(resolve, 'image/png');
+        setTimeout(() => { canvas.toBlob(resolve, 'image/png') });
       };
 
       image.crossOrigin = '';
