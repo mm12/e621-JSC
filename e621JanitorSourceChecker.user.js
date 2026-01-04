@@ -1,6 +1,5 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.56
 // @version      0.57
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
