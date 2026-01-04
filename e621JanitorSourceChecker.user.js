@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
 // @version      0.56
+// @version      0.57
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -501,6 +502,12 @@ async function setFluffleCache(postId, data) {
     const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => {
       let url = new URL(a.href);
       if (url.hostname == 'twitter.com') url.hostname = 'x.com';
+      if (url.hostname.endsWith('weasyl.com')) {
+        if (!url.pathname.match(/\d+$/)) {
+          const id = /\/submissions?\/(\d+)/.exec(url.pathname)[1];
+          url = new URL(`https://www.weasyl.com/submission/${id}`);
+        }
+      }
       let u = url.toString();
       return u.endsWith('/') ? u.slice(0, -1) : u;
     });
@@ -525,6 +532,12 @@ async function setFluffleCache(postId, data) {
       for (const result of results) {
         let url = new URL(result.url);
         if (url.hostname == 'twitter.com') url.hostname = 'x.com';
+        if (url.hostname.endsWith('weasyl.com')) {
+          if (!url.pathname.match(/\d+$/)) {
+            const id = /\/submissions?\/(\d+)/.exec(url.pathname)[1];
+            url = new URL(`https://www.weasyl.com/submission/${id}`);
+          }
+        }
         let u = url.toString();
         u = u.endsWith('/') ? u.slice(0, -1) : u;
         if (!realSourceLinks.includes(u)) {
