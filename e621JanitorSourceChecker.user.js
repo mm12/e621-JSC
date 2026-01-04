@@ -678,6 +678,7 @@ async function setFluffleCache(postId, data) {
 
               resolve(data)
             } catch (e) {
+              console.error(response.responseText)
               reject(e)
             }
           },
@@ -724,6 +725,7 @@ async function setFluffleCache(postId, data) {
 
             resolve(data)
           } catch (e) {
+            console.error(response.responseText)
             reject(e)
           }
         },
@@ -751,6 +753,7 @@ async function setFluffleCache(postId, data) {
 
             resolve(data.supported)
           } catch (e) {
+            console.error(response.responseText)
             reject(e)
           }
         },
@@ -789,21 +792,30 @@ async function setFluffleCache(postId, data) {
     })
   }
 
-  async function update(id) {
+  async function update(id, retries = 0) {
     return new Promise((resolve, reject) => {
       let req = {
         method: "GET",
         url: `https://search.yiff.today/checksource/update/${id}?waitfordata=true&forceupdate=true`,
-        onload: function (response) {
+        onload: async function (response) {
           try {
             let data = JSON.parse(response.responseText)
 
             resolve(data)
           } catch (e) {
+            if (retries < 3) {
+              await wait(500)
+              return resolve(update(id, ++retries))
+            }
+            console.error(response.responseText)
             reject(e)
           }
         },
-        onerror: function (e) {
+        onerror: async function (e) {
+          if (retries < 3) {
+            await wait(500)
+            return resolve(update(id, ++retries))
+          }
           reject(e)
         }
       }
@@ -856,7 +868,7 @@ async function setFluffleCache(postId, data) {
       let kemonoIconClone = kemonoIcon.cloneNode()
       kemonoIconClone.style.cursor = "pointer"
       kemonoIconClone.addEventListener("click", () => {
-        window.open(`https://kemono.su/${first.service}/user/${first.user}/post/${first.id}`)
+        window.open(`https://kemono.cr/${first.service}/user/${first.user}/post/${first.id}`)
       })
 
       links.insertBefore(kemonoIconClone, links.firstElementChild)
@@ -1000,9 +1012,15 @@ async function setFluffleCache(postId, data) {
         let links = document.querySelector(containerSelector)
         let spinny = spinner.cloneNode()
         links.insertBefore(spinny, links.firstElementChild)
-        let data = await update(id)
-        spinny.remove()
-        processData(data)
+        try {
+          let data = await update(id)
+          spinny.remove()
+          processData(data)
+        } catch (e) {
+          spinny.remove()
+          console.error(e)
+          Danbooru.error('Error reloading post. Check console.')
+        }
       })
       links.insertBefore(reloadClone, links.firstElementChild)
     }
