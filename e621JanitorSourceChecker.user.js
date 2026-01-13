@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.57
+// @version      0.58
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -498,8 +498,17 @@ async function setFluffleCache(postId, data) {
 
   function addResults(results) {
     const urls = []
-    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => {
-      let url = new URL(a.href);
+    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > *")).map(a => {
+      let url;
+      if (a.tagName == 'S') {
+        try {
+          url = new URL(a.innerText)
+        } catch (e) {
+          return null;
+        }
+      } else {
+        url = new URL(a.href);
+      }
       if (url.hostname == 'twitter.com') url.hostname = 'x.com';
       if (url.hostname.endsWith('weasyl.com')) {
         if (!url.pathname.match(/\d+$/)) {
@@ -509,7 +518,7 @@ async function setFluffleCache(postId, data) {
       }
       let u = url.toString();
       return u.endsWith('/') ? u.slice(0, -1) : u;
-    });
+    }).filter(a => a);
 
     const existingList = document.querySelector('.post-sidebar-info');
 
