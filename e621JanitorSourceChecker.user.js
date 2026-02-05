@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.54
+// @version      0.58
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -92,7 +92,7 @@ function getImageBlob(fileUrl) {
         const ctx = canvas.getContext('2d');
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(image, 0, 0, calculatedWidth, calculatedHeight);
-        canvas.toBlob(resolve, 'image/png');
+        setTimeout(() => { canvas.toBlob(resolve, 'image/png') });
       };
 
       image.crossOrigin = '';
@@ -482,6 +482,8 @@ async function setFluffleCache(postId, data) {
     wrappedAnchor.appendChild(addSourceSign.cloneNode(true));
     div.appendChild(wrappedAnchor);
 
+    if (result.url.endsWith('/')) result.url = result.url.slice(0, -1);
+
     const a = document.createElement('a');
     a.classList.add('decorated', 'fluffle621-source');
     a.target = '_blank';
@@ -496,11 +498,27 @@ async function setFluffleCache(postId, data) {
 
   function addResults(results) {
     const urls = []
-    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > a")).map(a => {
-      let url = new URL(a.href);
+    const realSourceLinks = Array.from(document.querySelectorAll(".source-link > *")).map(a => {
+      let url;
+      if (a.tagName == 'S') {
+        try {
+          url = new URL(a.innerText)
+        } catch (e) {
+          return null;
+        }
+      } else {
+        url = new URL(a.href);
+      }
       if (url.hostname == 'twitter.com') url.hostname = 'x.com';
-      return url.toString();
-    });
+      if (url.hostname.endsWith('weasyl.com')) {
+        if (!url.pathname.match(/\d+$/)) {
+          const id = /\/submissions?\/(\d+)/.exec(url.pathname)[1];
+          url = new URL(`https://www.weasyl.com/submission/${id}`);
+        }
+      }
+      let u = url.toString();
+      return u.endsWith('/') ? u.slice(0, -1) : u;
+    }).filter(a => a);
 
     const existingList = document.querySelector('.post-sidebar-info');
 
@@ -522,9 +540,17 @@ async function setFluffleCache(postId, data) {
       for (const result of results) {
         let url = new URL(result.url);
         if (url.hostname == 'twitter.com') url.hostname = 'x.com';
-        if (!realSourceLinks.includes(url.toString())) {
+        if (url.hostname.endsWith('weasyl.com')) {
+          if (!url.pathname.match(/\d+$/)) {
+            const id = /\/submissions?\/(\d+)/.exec(url.pathname)[1];
+            url = new URL(`https://www.weasyl.com/submission/${id}`);
+          }
+        }
+        let u = url.toString();
+        u = u.endsWith('/') ? u.slice(0, -1) : u;
+        if (!realSourceLinks.includes(u)) {
           listItem.append(createSource(result, results.length == 1));
-          urls.push(result.url);
+          urls.push(u);
         }
       }
     }
@@ -661,6 +687,7 @@ async function setFluffleCache(postId, data) {
 
               resolve(data)
             } catch (e) {
+              console.error(response.responseText)
               reject(e)
             }
           },
@@ -707,6 +734,7 @@ async function setFluffleCache(postId, data) {
 
             resolve(data)
           } catch (e) {
+            console.error(response.responseText)
             reject(e)
           }
         },
@@ -734,6 +762,7 @@ async function setFluffleCache(postId, data) {
 
             resolve(data.supported)
           } catch (e) {
+            console.error(response.responseText)
             reject(e)
           }
         },
@@ -772,21 +801,30 @@ async function setFluffleCache(postId, data) {
     })
   }
 
-  async function update(id) {
+  async function update(id, retries = 0) {
     return new Promise((resolve, reject) => {
       let req = {
         method: "GET",
         url: `https://search.yiff.today/checksource/update/${id}?waitfordata=true&forceupdate=true`,
-        onload: function (response) {
+        onload: async function (response) {
           try {
             let data = JSON.parse(response.responseText)
 
             resolve(data)
           } catch (e) {
+            if (retries < 3) {
+              await wait(500)
+              return resolve(update(id, ++retries))
+            }
+            console.error(response.responseText)
             reject(e)
           }
         },
-        onerror: function (e) {
+        onerror: async function (e) {
+          if (retries < 3) {
+            await wait(500)
+            return resolve(update(id, ++retries))
+          }
           reject(e)
         }
       }
@@ -839,7 +877,7 @@ async function setFluffleCache(postId, data) {
       let kemonoIconClone = kemonoIcon.cloneNode()
       kemonoIconClone.style.cursor = "pointer"
       kemonoIconClone.addEventListener("click", () => {
-        window.open(`https://kemono.su/${first.service}/user/${first.user}/post/${first.id}`)
+        window.open(`https://kemono.cr/${first.service}/user/${first.user}/post/${first.id}`)
       })
 
       links.insertBefore(kemonoIconClone, links.firstElementChild)
@@ -983,9 +1021,15 @@ async function setFluffleCache(postId, data) {
         let links = document.querySelector(containerSelector)
         let spinny = spinner.cloneNode()
         links.insertBefore(spinny, links.firstElementChild)
-        let data = await update(id)
-        spinny.remove()
-        processData(data)
+        try {
+          let data = await update(id)
+          spinny.remove()
+          processData(data)
+        } catch (e) {
+          spinny.remove()
+          console.error(e)
+          Danbooru.error('Error reloading post. Check console.')
+        }
       })
       links.insertBefore(reloadClone, links.firstElementChild)
     }
