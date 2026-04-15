@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         e621 Janitor Source Checker
-// @version      0.58
+// @version      0.59
 // @description  Tells you if a pending post matches its source.
 // @author       Tarrgon
 // @match        https://e621.net/posts*
@@ -15,6 +15,7 @@
 // @connect      static1.e621.net
 // @connect      kemono.cr
 // @connect      public.api.bsky.app
+// @connect      cdnjs.cloudflare.com
 // @grant        GM.xmlHttpRequest
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -49,7 +50,117 @@ document.head.append(Object.assign(document.createElement("style"), {
   to {
     width: 16px;
   }
-}`
+}
+
+.fa-solid,
+.fa {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: var(--fa-display, inline-block);
+  font-family: "Font Awesome 7 Free";
+  font-feature-settings: normal;
+  font-style: normal;
+  font-synthesis: none;
+  font-variant: normal;
+  font-weight: var(--fa-style, 900);
+  line-height: 1;
+  text-align: center;
+  text-rendering: auto;
+  width: var(--fa-width, 1.25em);
+}
+
+@supports not (content: ""/"") {
+  :is(.fa-solid,
+  .fa)::before {
+    content: var(--fa);
+  }
+}
+
+:is(.fas,
+.far,
+.fab,
+.fa-solid,
+.fa-regular,
+.fa-brands,
+.fa-classic,
+.fa)::before {
+  content: var(--fa)/"";
+}
+
+.fa-plus {
+  --fa: "\\+";
+}
+
+.fa-check-double {
+  --fa: "\\f560";
+}
+
+.fa-check {
+  --fa: "\\f00c";
+}
+
+
+.fa-square {
+  --fa: "\\f0c8";
+}
+
+.fa-xmark {
+  --fa: "\\f00d";
+}
+
+.fa-spinner {
+  --fa: "\\f110";
+}
+
+.fa-question {
+  --fa: "\\?";
+}
+
+.fa-exclamation {
+  --fa: "\\!";
+}
+
+.fa-circle-info {
+  --fa: "\\f05a";
+}
+
+.fa-angles-down {
+  --fa: "\\f103";
+}
+
+.fa-rotate {
+  --fa: "\\f2f1";
+}
+
+.fa-solid {
+  --fa-style: 900;
+}
+
+.fa-spin {
+  animation-name: fa-spin;
+  animation-delay: var(--fa-animation-delay, 0s);
+  animation-direction: var(--fa-animation-direction, normal);
+  animation-duration: var(--fa-animation-duration, 2s);
+  animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+  animation-timing-function: var(--fa-animation-timing, linear);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-spin {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+`
 }));
 
 let sourcesToAdd = [];
@@ -130,6 +241,22 @@ function getFluffleData(blob) {
       fetch: true
     })
   })
+}
+
+async function getFAFontData(type) {
+  return new Promise((resolve, reject) => {
+    GM.xmlHttpRequest({
+      method: "GET",
+      url: `https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/webfonts/${type}.woff2`,
+      responseType: "arraybuffer",
+      onload: function (data) {
+        resolve(data.response);
+      },
+      onerror: function (e) {
+        reject(e);
+      }
+    });
+  });
 }
 
 const messages = [
@@ -252,6 +379,33 @@ async function setFluffleCache(postId, data) {
 
 (async function () {
   'use strict';
+
+  const FA_FONT_FILES = [
+    new FontFace(
+      "Font Awesome 7 Free",
+      await getFAFontData("fa-regular-400"),
+      {
+        style: "normal",
+        weight: 400,
+        display: "block"
+      }
+    ),
+    new FontFace(
+      "Font Awesome 7 Free",
+      await getFAFontData("fa-solid-900"),
+      {
+        style: "normal",
+        weight: 900,
+        display: "block"
+      }
+    )
+  ]
+
+  for (const font of FA_FONT_FILES) {
+    document.fonts.add(font);
+
+    await font.load();
+  }
 
   if (window.location.href.startsWith("https://e621.net/post_replacements/")) {
     let params = new URLSearchParams(window.location.search)
